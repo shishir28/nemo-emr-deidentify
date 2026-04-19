@@ -12,6 +12,8 @@ services:
     volumes:
       # Mount checkpoints so the container can load the trained model
       - ./models/checkpoints:/app/models/checkpoints:ro
+      # Mount logs so audit records persist outside the container
+      - ./logs:/app/logs
     environment:
       - TRANSFORMERS_VERBOSITY=error
     deploy:

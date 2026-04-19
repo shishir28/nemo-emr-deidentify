@@ -22,6 +22,9 @@ models/checkpoints/
 notebooks/.ipynb_checkpoints/
 *.ipynb_checkpoints/
 
+# Test cache
+.pytest_cache/
+
 # Logs
 logs/
 *.log

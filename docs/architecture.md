@@ -194,6 +194,7 @@ docker-compose.yml
   │     build: docker/Dockerfile
   │     port: 8000
   │     volume: ./models/checkpoints → /app/models/checkpoints (read-only)
+  │     volume: ./logs → /app/logs (audit log persistence)
   │     gpu: all
   │
   └── trainer (profile: training — run once)

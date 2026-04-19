@@ -17,6 +17,13 @@ models/checkpoints/
 # Training scripts — not needed in serving container
 scripts/
 
+# Tests — not needed in serving container
+tests/
+.pytest_cache/
+
+# Audit logs — mount as volume at runtime
+logs/
+
 # Dev files
 notebooks/
 .git/
