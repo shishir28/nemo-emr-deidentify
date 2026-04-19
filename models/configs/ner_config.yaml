@@ -1,0 +1,44 @@
+model:
+  base_model: "dmis-lab/biobert-base-cased-v1.2"  # BioBERT pretrained on PubMed
+  max_seq_length: 128
+  num_labels: 15  # O + B/I for 7 PHI categories
+
+  labels:
+    - O
+    - B-NAME
+    - I-NAME
+    - B-DATE
+    - I-DATE
+    - B-ID
+    - I-ID
+    - B-LOCATION
+    - I-LOCATION
+    - B-CONTACT
+    - I-CONTACT
+    - B-AGE
+    - I-AGE
+    - B-PROFESSION
+    - I-PROFESSION
+
+training:
+  epochs: 5
+  batch_size: 16
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  grad_clip: 1.0
+  seed: 42
+
+data:
+  train: "data/processed/train.txt"
+  dev: "data/processed/dev.txt"
+  test: "data/processed/test.txt"
+
+output:
+  checkpoint_dir: "models/checkpoints"
+  best_model_name: "phi_ner_best.pt"
+  final_model_name: "phi_ner_final.pt"
+
+logging:
+  log_every_steps: 50
+  eval_every_epochs: 1

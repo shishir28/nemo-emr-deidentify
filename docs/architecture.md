@@ -23,11 +23,12 @@ The pipeline processes raw clinical text through four sequential stages: ingesti
   ║  │              data/processed/ train│dev│test.txt           │    ║
   ║  └───────────────────────────────────┼───────────────────────┘    ║
   ║                                      │                            ║
-  ║  ┌─────────────── MODEL LAYER (Phase 3) ───────────────────┐     ║
+  ║  ┌─────────────── MODEL LAYER (Phase 3 ✓) ──────────────────┐     ║
   ║  │                                   ▼                      │     ║
-  ║  │              scripts/train.py (BioMegatron + LoRA)       │     ║
+  ║  │              scripts/train.py (BioBERT fine-tune)        │     ║
+  ║  │              scripts/evaluate.py (per-label F1)          │     ║
   ║  │                                   │                      │     ║
-  ║  │              models/checkpoints/*.nemo                   │     ║
+  ║  │              models/checkpoints/phi_ner_best.pt          │     ║
   ║  └───────────────────────────────────┼───────────────────────┘    ║
   ║                                      │                            ║
   ║  ┌─────────────── SERVING LAYER (Phase 4) ─────────────────┐     ║
@@ -53,13 +54,14 @@ The pipeline processes raw clinical text through four sequential stages: ingesti
 - Returns: redacted text + JSON list of detected PHI spans with labels and confidence scores
 - Stateless — no patient data stored
 
-### 2. NeMo NER Model (`models/`)
+### 2. NER Model (`models/`)
 
-- Base model: **BioMegatron** (BERT pretrained on PubMed + clinical notes)
+- Base model: **BioBERT** (`dmis-lab/biobert-base-cased-v1.2`) — BERT pretrained on PubMed abstracts and PMC full-text
 - Task: token classification (BIO tagging)
-- Fine-tuned on: i2b2 2014 de-identification dataset
+- Fine-tuned on: synthetic data (Phase 2); drop-in replacement with i2b2 2014 when available
 - PHI labels: `NAME`, `DATE`, `ID`, `LOCATION`, `CONTACT`, `AGE`, `PROFESSION`
-- Training framework: NeMo 2.7.2 + PyTorch 2.7+cu128 on GB10 Blackwell GPU
+- Training: PyTorch 2.7+cu128, ~38s/epoch on GB10 Blackwell, best checkpoint saved by dev F1
+- Test F1: 1.0 on synthetic data; expect ~0.85–0.93 on real i2b2
 
 ### 3. Redactor Module (`pipeline/`)
 
@@ -120,8 +122,11 @@ i2b2 2014 XML files                    data/synthetic/notes.jsonl
               (BIO sequence checks, label distribution)
                              │
                              ▼
-              scripts/train.py          ← Phase 3
-              (BioMegatron + LoRA fine-tuning on DGX Spark)
+              scripts/train.py          ← Phase 3 ✓
+              (BioBERT fine-tuning, AdamW + linear warmup, DGX Spark)
+                             │
+              scripts/evaluate.py       ← Phase 3 ✓
+              (per-label precision / recall / F1 on test set)
                              │
                              ▼
               models/checkpoints/

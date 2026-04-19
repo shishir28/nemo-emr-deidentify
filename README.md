@@ -71,9 +71,28 @@ python3 scripts/verify_gpu.py
 |---|---|---|
 | 1 | Done | Environment setup — NeMo 2.7.2, PyTorch 2.7+cu128 |
 | 2 | Done | Data preparation — synthetic generator, BIO converter, validation |
-| 3 | Pending | Model fine-tuning — BioMegatron NER |
+| 3 | Done | Model fine-tuning — BioBERT NER, F1 1.0 on synthetic test set |
 | 4 | Pending | FastAPI pipeline service |
 | 5 | Pending | Validation and hardening |
+
+## Model
+
+| Property | Value |
+|---|---|
+| Base model | `dmis-lab/biobert-base-cased-v1.2` |
+| Task | Token classification (BIO NER) |
+| PHI labels | NAME, DATE, ID, LOCATION, CONTACT, AGE, PROFESSION |
+| Training time | ~38 seconds / epoch on GB10 Blackwell |
+| Test F1 (synthetic) | 1.0 (templated data — expect ~0.85–0.93 on real i2b2) |
+
+### Run training
+
+```bash
+source venv/bin/activate
+python3 scripts/train.py                          # default config
+python3 scripts/train.py --epochs 10 --batch_size 32
+python3 scripts/evaluate.py                       # per-label F1 on test set
+```
 
 ## Data Scripts
 
