@@ -72,7 +72,7 @@ python3 scripts/verify_gpu.py
 | 1 | Done | Environment setup — NeMo 2.7.2, PyTorch 2.7+cu128 |
 | 2 | Done | Data preparation — synthetic generator, BIO converter, validation |
 | 3 | Done | Model fine-tuning — BioBERT NER, F1 1.0 on synthetic test set |
-| 4 | Pending | FastAPI pipeline service |
+| 4 | Done | FastAPI pipeline service — /deidentify, /deidentify/batch, /health |
 | 5 | Pending | Validation and hardening |
 
 ## Model
@@ -127,6 +127,42 @@ Once you have the i2b2 2014 XML files, convert them to the span JSONL format and
 Training data requires free registration:
 - [i2b2 2014 De-identification Dataset](https://www.i2b2.org/NLP/DataSets/) — gold standard for PHI detection
 - [MIMIC-IV](https://physionet.org/content/mimiciv/) — large-scale clinical notes (PhysioNet credentialed access)
+
+## Running the API
+
+```bash
+source venv/bin/activate
+TRANSFORMERS_VERBOSITY=error uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check — returns model name and device |
+| `POST` | `/deidentify` | De-identify a single clinical note |
+| `POST` | `/deidentify/batch` | De-identify up to 100 notes in one request |
+| `GET` | `/docs` | Interactive Swagger UI |
+
+### Example
+
+```bash
+curl -X POST http://localhost:8000/deidentify \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Patient John Smith, DOB 12/03/1965, MRN 4821903..."}'
+```
+
+Response:
+```json
+{
+  "redacted_text": "Patient [NAME] DOB [DATE] MRN [ID] ...",
+  "phi_spans": [
+    {"start": 8, "end": 19, "label": "NAME", "text": "John Smith,", "source": "ner", "confidence": 1.0}
+  ],
+  "phi_count": 10,
+  "sources": {"ner": 10}
+}
+```
 
 ## Architecture
 

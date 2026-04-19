@@ -31,16 +31,22 @@ The pipeline processes raw clinical text through four sequential stages: ingesti
   ║  │              models/checkpoints/phi_ner_best.pt          │     ║
   ║  └───────────────────────────────────┼───────────────────────┘    ║
   ║                                      │                            ║
-  ║  ┌─────────────── SERVING LAYER (Phase 4) ─────────────────┐     ║
-  ║  │                                   ▼                      │     ║
-  ║  │   Clinical Note ──► FastAPI :8000 ──► NeMo NER Model     │     ║
-  ║  │   (raw text)              │               │              │     ║
-  ║  │                           ▼               ▼              │     ║
-  ║  │                       Redactor     Regex Safety Pass     │     ║
-  ║  │                           │               │              │     ║
-  ║  │                           └───────┬───────┘              │     ║
-  ║  │                                   ▼                      │     ║
-  ║  │   Redacted Note ◄─────── PHI Span JSON                   │     ║
+  ║  ┌─────────────── SERVING LAYER (Phase 4 ✓) ────────────────┐     ║
+  ║  │                                                           │     ║
+  ║  │   Clinical Note ──► FastAPI :8000 ──► pipeline/          │     ║
+  ║  │   (raw text)         api/main.py      redactor.py        │     ║
+  ║  │                                           │              │     ║
+  ║  │                                  ┌────────┴────────┐     │     ║
+  ║  │                                  ▼                 ▼     │     ║
+  ║  │                           BioBERT NER       Regex Safety │     ║
+  ║  │                           (NER spans)       Pass         │     ║
+  ║  │                                  └────────┬────────┘     │     ║
+  ║  │                                           ▼              │     ║
+  ║  │                                      Redactor            │     ║
+  ║  │                                  (text replacement)      │     ║
+  ║  │                                           │              │     ║
+  ║  │   Redacted Note ◄──────────── PHI Span JSON              │     ║
+  ║  │                              + phi_count + sources        │     ║
   ║  └──────────────────────────────────────────────────────────┘     ║
   ╚══════════════════════════════════════════════════════════════════╝
 ```
