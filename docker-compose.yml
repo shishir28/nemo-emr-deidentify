@@ -1,0 +1,57 @@
+services:
+
+  # ── Serving container ────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: nemo-emr-deidentify:latest
+    container_name: nemo-deidentify-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount checkpoints so the container can load the trained model
+      - ./models/checkpoints:/app/models/checkpoints:ro
+    environment:
+      - TRANSFORMERS_VERBOSITY=error
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Training container (run once, not a long-running service) ────────────
+  trainer:
+    image: nvcr.io/nvidia/nemo:24.09
+    container_name: nemo-deidentify-trainer
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - TRANSFORMERS_VERBOSITY=error
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    profiles:
+      - training   # only starts when explicitly requested
+    command: >
+      bash -c "
+        pip install -q transformers datasets pydantic PyYAML &&
+        python3 scripts/generate_synthetic.py &&
+        python3 scripts/convert_to_bio.py &&
+        python3 scripts/validate_data.py &&
+        python3 scripts/train.py
+      "

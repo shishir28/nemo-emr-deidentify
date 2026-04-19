@@ -34,19 +34,33 @@ at [LOCATION] by Dr. [NAME].
 
 ```
 nemo-emr-deidentify/
-├── data/
-│   ├── raw/          # Original i2b2 / MIMIC downloads (never committed)
-│   ├── processed/    # NeMo BIO-tagged NER format
-│   └── synthetic/    # Generated test notes for evaluation
+├── api/
+│   ├── main.py         # FastAPI app — /health, /deidentify, /deidentify/batch
+│   └── models.py       # Pydantic request/response schemas
+├── pipeline/
+│   ├── redactor.py     # BioBERT NER inference + char-level span extraction
+│   └── regex_pass.py   # Rule-based safety pass (14 PHI patterns)
 ├── models/
-│   ├── checkpoints/  # Fine-tuned model weights (never committed)
-│   └── configs/      # NeMo YAML training configs
-├── pipeline/         # Core de-identification logic
-├── api/              # FastAPI service
+│   ├── checkpoints/    # Fine-tuned weights — never committed (git-ignored)
+│   └── configs/
+│       └── ner_config.yaml  # Training hyperparameters and label definitions
+├── scripts/
+│   ├── setup_env.sh         # Environment setup (PyTorch + NeMo install)
+│   ├── verify_gpu.py        # GPU compatibility check
+│   ├── generate_synthetic.py # Synthetic clinical note generator
+│   ├── convert_to_bio.py    # Span JSONL → NeMo BIO format converter
+│   ├── validate_data.py     # BIO file validation
+│   ├── train.py             # BioBERT fine-tuning
+│   └── evaluate.py          # Per-label F1 evaluation
+├── data/
+│   ├── raw/          # i2b2 / MIMIC downloads — never committed
+│   ├── processed/    # BIO-tagged train/dev/test splits — never committed
+│   └── synthetic/    # Generated notes — never committed
+├── docker/
+│   └── Dockerfile    # Serving container (nvcr.io/nvidia/nemo:24.09 base)
 ├── notebooks/        # Exploration and evaluation notebooks
-├── scripts/          # Setup, data prep, and training scripts
-├── docker/           # Dockerfile using official NeMo base image
-└── docs/             # Architecture and design docs
+└── docs/
+    └── architecture.md  # System design and diagrams
 ```
 
 ## Prerequisites
@@ -129,6 +143,21 @@ Training data requires free registration:
 - [MIMIC-IV](https://physionet.org/content/mimiciv/) — large-scale clinical notes (PhysioNet credentialed access)
 
 ## Running the API
+
+### With Docker (recommended)
+
+```bash
+# 1. Train the model first (runs data prep + training inside the NeMo container)
+docker compose --profile training up trainer
+
+# 2. Build and start the serving API
+docker compose up --build api
+
+# API is available at http://localhost:8000
+# Swagger UI at http://localhost:8000/docs
+```
+
+### Without Docker (local dev)
 
 ```bash
 source venv/bin/activate

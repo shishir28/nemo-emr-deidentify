@@ -55,10 +55,11 @@ The pipeline processes raw clinical text through four sequential stages: ingesti
 
 ### 1. FastAPI Service (`api/`)
 
-- Single `POST /deidentify` endpoint
-- Accepts raw clinical note text
-- Returns: redacted text + JSON list of detected PHI spans with labels and confidence scores
-- Stateless — no patient data stored
+- `GET  /health` — liveness check, returns model name and device
+- `POST /deidentify` — de-identify a single clinical note
+- `POST /deidentify/batch` — de-identify up to 100 notes in one request
+- `GET  /docs` — interactive Swagger UI
+- Stateless — no patient data stored at rest
 
 ### 2. NER Model (`models/`)
 
@@ -90,7 +91,7 @@ Raw Note
 Tokenisation (WordPiece / SentencePiece)
    │
    ▼
-BioMegatron Token Classification
+BioBERT Token Classification
    │   → outputs: [B-NAME, I-NAME, O, B-DATE, ...]
    ▼
 Span Extraction (BIO → entity spans)
@@ -136,11 +137,14 @@ i2b2 2014 XML files                    data/synthetic/notes.jsonl
                              │
                              ▼
               models/checkpoints/
-              (saved .nemo model file)
+                ├── phi_ner_best.pt   (best dev F1 checkpoint)
+                ├── phi_ner_final.pt  (final epoch checkpoint)
+                └── tokenizer/        (saved tokenizer files)
                              │
                              ▼
-              api/main.py               ← Phase 4
-              (loads checkpoint, serves inference)
+              api/main.py               ← Phase 4 ✓
+              pipeline/redactor.py      (NER inference + char span extraction)
+              pipeline/regex_pass.py    (rule-based safety pass)
 ```
 
 ## API Contract
@@ -158,10 +162,12 @@ POST /deidentify
 {
   "redacted_text": "Patient [NAME], DOB [DATE], MRN [ID]...",
   "phi_spans": [
-    { "start": 8,  "end": 18, "label": "NAME", "text": "John Smith",  "confidence": 0.98 },
-    { "start": 25, "end": 35, "label": "DATE", "text": "12/03/1965", "confidence": 0.97 },
-    { "start": 41, "end": 48, "label": "ID",   "text": "4821903",    "confidence": 0.95 }
-  ]
+    { "start": 8,  "end": 18, "label": "NAME", "text": "John Smith",  "source": "ner",   "confidence": 1.0 },
+    { "start": 25, "end": 35, "label": "DATE", "text": "12/03/1965", "source": "ner",   "confidence": 1.0 },
+    { "start": 41, "end": 48, "label": "ID",   "text": "4821903",    "source": "regex", "confidence": 0.85 }
+  ],
+  "phi_count": 3,
+  "sources": { "ner": 2, "regex": 1 }
 }
 ```
 
@@ -176,7 +182,26 @@ POST /deidentify
 | NeMo | 2.7.2 |
 | Python | 3.12 |
 | Serving | FastAPI + Uvicorn |
-| Container | `nvcr.io/nvidia/nemo:24.09` (production) |
+| Serving container | `docker/Dockerfile` (based on `nvcr.io/nvidia/nemo:24.09`) |
+| Training container | `nvcr.io/nvidia/nemo:24.09` directly via `docker compose --profile training` |
+
+## Docker Architecture
+
+```
+docker-compose.yml
+  ├── api (serving)
+  │     image: nemo-emr-deidentify:latest
+  │     build: docker/Dockerfile
+  │     port: 8000
+  │     volume: ./models/checkpoints → /app/models/checkpoints (read-only)
+  │     gpu: all
+  │
+  └── trainer (profile: training — run once)
+        image: nvcr.io/nvidia/nemo:24.09
+        volume: . → /app (full repo mount)
+        runs: generate_synthetic → convert_to_bio → validate → train
+        gpu: all
+```
 
 ## Security Considerations
 
