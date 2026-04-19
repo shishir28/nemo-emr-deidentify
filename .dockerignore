@@ -1,0 +1,18 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+
+# Data — mount as volumes instead
+data/
+
+# Checkpoints — mount as volumes instead
+models/checkpoints/
+
+# Dev files
+notebooks/
+.git/
+.gitignore
+*.log
+docs/
