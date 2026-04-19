@@ -87,7 +87,7 @@ python3 scripts/verify_gpu.py
 | 2 | Done | Data preparation — synthetic generator, BIO converter, validation |
 | 3 | Done | Model fine-tuning — BioBERT NER, F1 1.0 on synthetic test set |
 | 4 | Done | FastAPI pipeline service — /deidentify, /deidentify/batch, /health |
-| 5 | Pending | Validation and hardening |
+| 5 | Done | Validation and hardening — 41/41 tests, audit logging, 143 notes/sec |
 
 ## Model
 
@@ -191,6 +191,37 @@ Response:
   "phi_count": 10,
   "sources": {"ner": 10}
 }
+```
+
+## Testing
+
+```bash
+source venv/bin/activate
+python3 -m pytest tests/ -v          # 41 tests — regex, API, validation, edge cases
+python3 scripts/benchmark.py --n 100 # throughput + latency report
+```
+
+| Test class | Coverage |
+|---|---|
+| `TestDatePatterns` | 6 date format variants |
+| `TestContactPatterns` | AU mobile, landline, email, US phone |
+| `TestIDPatterns` | MRN prefix/hash, SSN |
+| `TestAgePatterns` | keyword, hyphenated, spaced |
+| `TestOverlapProtection` | NER span priority, no duplicates |
+| `TestEdgeCases` | empty, no PHI, PHI at start/end, multi-type |
+| `TestHealth` | status, fields |
+| `TestDeidentify` | response shape, PHI detected, no PHI in output, span validity |
+| `TestInputValidation` | empty, missing field, over limit, null bytes |
+| `TestBatch` | list response, limit enforced, per-note correctness |
+
+**Benchmark (GB10 Blackwell):** 143 notes/sec · p50 6.9ms · p95 7.6ms · p99 8.2ms
+
+## Audit Logging
+
+Every request is logged to `logs/audit.log` without storing any PHI:
+
+```json
+{"timestamp": "2026-04-19T10:00:00Z", "doc_id": "a3f1b2c4...", "char_length": 245, "phi_count": 10, "sources": {"ner": 9, "regex": 1}, "labels": {"NAME": 2, "DATE": 3, "ID": 1, "LOCATION": 2, "CONTACT": 1, "AGE": 1}, "latency_ms": 7.2}
 ```
 
 ## Architecture

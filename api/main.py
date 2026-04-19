@@ -15,6 +15,7 @@ import torch
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.audit import log_request
 from api.models import DeidentifyRequest, DeidentifyResponse, HealthResponse, PHISpan
 from pipeline.redactor import Redactor
 
@@ -57,20 +58,28 @@ def health():
     )
 
 
-@app.post("/deidentify", response_model=DeidentifyResponse)
-def deidentify(request: DeidentifyRequest):
-    if redactor is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+def _sanitize(text: str) -> str:
+    return text.replace("\x00", "")
 
-    result = redactor.deidentify(request.text)
-    source_counts = Counter(s["source"] for s in result["phi_spans"])
 
+def _build_response(text: str) -> DeidentifyResponse:
+    t0 = time.monotonic()
+    result = redactor.deidentify(text)
+    latency_ms = (time.monotonic() - t0) * 1000
+    log_request(text, result["phi_spans"], latency_ms)
     return DeidentifyResponse(
         redacted_text=result["redacted_text"],
         phi_spans=[PHISpan(**s) for s in result["phi_spans"]],
         phi_count=len(result["phi_spans"]),
-        sources=dict(source_counts),
+        sources=dict(Counter(s["source"] for s in result["phi_spans"])),
     )
+
+
+@app.post("/deidentify", response_model=DeidentifyResponse)
+def deidentify(request: DeidentifyRequest):
+    if redactor is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    return _build_response(_sanitize(request.text))
 
 
 @app.post("/deidentify/batch", response_model=list[DeidentifyResponse])
@@ -79,15 +88,4 @@ def deidentify_batch(requests: list[DeidentifyRequest]):
         raise HTTPException(status_code=503, detail="Model not loaded")
     if len(requests) > 100:
         raise HTTPException(status_code=400, detail="Batch size limit is 100 notes")
-
-    responses = []
-    for req in requests:
-        result = redactor.deidentify(req.text)
-        source_counts = Counter(s["source"] for s in result["phi_spans"])
-        responses.append(DeidentifyResponse(
-            redacted_text=result["redacted_text"],
-            phi_spans=[PHISpan(**s) for s in result["phi_spans"]],
-            phi_count=len(result["phi_spans"]),
-            sources=dict(source_counts),
-        ))
-    return responses
+    return [_build_response(_sanitize(req.text)) for req in requests]

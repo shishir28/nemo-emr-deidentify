@@ -208,4 +208,18 @@ docker-compose.yml
 - No data egress — all compute is on-prem
 - API runs on localhost by default; not exposed externally without explicit config
 - `data/` and `models/checkpoints/` are git-ignored — no PHI in version control
-- Audit log of every de-identification request planned for Phase 5
+- Audit log (`logs/audit.log`) records every request without storing PHI text — only SHA-256 hash, char length, phi count, labels, and latency
+- Null bytes stripped from input before processing
+- Batch endpoint capped at 100 notes per request
+
+## Test Coverage (Phase 5 ✓)
+
+41 tests across 3 files:
+
+| File | Scope |
+|---|---|
+| `tests/test_regex_pass.py` | Unit — all 14 regex patterns, overlap protection, edge cases |
+| `tests/test_api.py` | Integration — all endpoints, input validation, batch behaviour |
+| `tests/conftest.py` | Shared test client (model loaded once per session) |
+
+**Benchmark (GB10 Blackwell):** 143 notes/sec · p50 6.9ms · p95 7.6ms · p99 8.2ms
