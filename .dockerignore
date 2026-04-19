@@ -9,6 +9,13 @@ data/
 
 # Checkpoints — mount as volumes instead
 models/checkpoints/
+*.pt
+*.pth
+*.nemo
+*.ckpt
+
+# Training scripts — not needed in serving container
+scripts/
 
 # Dev files
 notebooks/
