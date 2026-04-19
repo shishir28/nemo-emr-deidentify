@@ -70,10 +70,31 @@ python3 scripts/verify_gpu.py
 | Phase | Status | Description |
 |---|---|---|
 | 1 | Done | Environment setup — NeMo 2.7.2, PyTorch 2.7+cu128 |
-| 2 | Pending | Data preparation — i2b2 BIO format conversion |
+| 2 | Done | Data preparation — synthetic generator, BIO converter, validation |
 | 3 | Pending | Model fine-tuning — BioMegatron NER |
 | 4 | Pending | FastAPI pipeline service |
 | 5 | Pending | Validation and hardening |
+
+## Data Scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/generate_synthetic.py` | Generates 500 synthetic clinical notes with annotated PHI spans |
+| `scripts/convert_to_bio.py` | Converts span-annotated JSONL to NeMo BIO format (80/10/10 split) |
+| `scripts/validate_data.py` | Validates BIO files — checks label consistency and reports distribution |
+
+### Run the data pipeline
+
+```bash
+source venv/bin/activate
+python3 scripts/generate_synthetic.py   # → data/synthetic/notes.jsonl
+python3 scripts/convert_to_bio.py       # → data/processed/train|dev|test.txt
+python3 scripts/validate_data.py        # confirms all splits pass
+```
+
+### Using real i2b2 data
+
+Once you have the i2b2 2014 XML files, convert them to the span JSONL format and place at `data/processed/notes.jsonl`. The converter will prefer that over the synthetic file automatically.
 
 ## Key Design Decisions
 
